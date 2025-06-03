@@ -1,52 +1,380 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8">
-  <title>Joel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <title>Joel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style type="text/css">
-    html,
-    body {
-      background: pink;
-      margin: 0;
-      padding: 0;
-      font-family: sans-serif;
-    }
+    <style type="text/css">
+        html,
+        body {
+            background: pink;
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
 
-    #captcha-container {
-      background: white;
-      width: 390px;
-      height: 300px;
-    }
+        #captcha-container {
+            background: white;
+            width: 390px;
+            height: 300px;
+        }
 
-    /* Your style here... */
-  </style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+
+            /* Disable scroll on tap when using canvas */
+            touch-action: none;
+        }
+
+        /* Your style here... */
+    </style>
 </head>
 
 <body>
-  <div id="captcha-container">
-    <!-- Add your CAPTCHA here: -->
-    Hello world!
+    <div id="captcha-container">
+        <canvas id="canvas"></canvas>
+    </div>
 
-    <!-- We've added a sample button. Feel free to remove it: -->
-    <button id="solve">
-      Solve!
-    </button>
-  </div>
+    <script type="text/javascript">
+        (function (window, document) {
+            // This is how you tell the parent window that the CAPTCHA was successful.
+            function captchaSuccess() {
+                window.top.postMessage("success", '*');
+            }
 
-  <script type="text/javascript">
-    (function(window, document){
-      // This is how you tell the parent window that the CAPTCHA was successful.
-      function captchaSuccess() {
-        window.top.postMessage("success", '*');
-      }
+            // Set up the global variables we'll use.
+            var CANVAS_WIDTH = 390;
+            var CANVAS_HEIGHT = 300;
+            var PAPER_WIDTH = 10;
+            var PAPER_HEIGHT = PAPER_WIDTH;
+            var PAPER_START_X = 0;
+            var PAPER_START_Y = CANVAS_HEIGHT - PAPER_HEIGHT; // Start at the bottom of the canvas
+            var canvas = document.getElementById('canvas');
+            var ctx = canvas.getContext('2d');
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
 
-      // Your CAPTCHA code goes here, we've added a simple example below:
-      document.getElementById('solve')
-           .addEventListener('click', () => captchaSuccess());
+            var isOnFailureScreen = false; // Flag to check if we're on the failure screen
 
-    })(window, document);
-  </script>
+            // Paper details
+            // Size
+            var paperWidth = PAPER_WIDTH;
+            var paperHeight = PAPER_WIDTH;
+            // Position
+            var paperX = PAPER_START_X;
+            var paperY = PAPER_START_Y; // Start at the bottom of the canvas
+
+            // Velocity
+            var paperVelocityX = 2;
+            var paperVelocityY = 1;
+            // Gravity
+            var gravity = 0.1;
+
+            var targetX = CANVAS_WIDTH - 50; // Target position
+            var targetY = CANVAS_HEIGHT - 50; // Target position
+
+            function generateNewTargetLocation() {
+                // Target will always be on the right hand side of the canvas
+                // Generate a new target location within the canvas bounds
+                targetX = (CANVAS_WIDTH / 2) + Math.random() * ((CANVAS_WIDTH / 2) - 50) + 25; // Ensure target is at least 25px from edges
+                targetY = Math.random() * (CANVAS_HEIGHT - 50) + 25; // Ensure target is at least 25px from edges
+            }
+
+            var windObjects = []; // Array to hold wind objects
+            var windDirection = 1; // 1 for right, -1 for left
+            var windSpeed = 0.1; // Speed of the wind
+            var maxWindObjects = 10; // Maximum number of wind objects
+
+            function generateRandomWindDetails() {
+                // Generate random wind direction and speed
+                windDirection = Math.random() < 0.5 ? 1 : -1; // Randomly choose direction
+                windSpeed = 0.5 + Math.random() * 2; // Random speed between 0.5 and 2
+            }
+
+            generateRandomWindDetails();
+
+            function calculateWind() {
+                // Generate wind objects if they don't exist
+                if (windObjects.length < maxWindObjects) {
+                    var windObject = {
+                        x: Math.random() * CANVAS_WIDTH,
+                        y: Math.random() * CANVAS_HEIGHT,
+                        length: 20 + Math.random() * 30, // Random length between 20 and 50
+                        speed: windSpeed + Math.random() * 2 // Random speed between windSpeed and windSpeed + 2
+                    };
+                    windObjects.push(windObject);
+                }
+
+                // Move all wind objects to the direction they're heading.
+                for (var i = 0; i < windObjects.length; i++) {
+                    var windObject = windObjects[i];
+                    windObject.x += windObject.speed * windDirection;
+                    // If the wind object goes out of bounds, remove it
+                    if (windObject.x < 0 || windObject.x > CANVAS_WIDTH) {
+                        windObjects.splice(i, 1);
+                        i--; // Adjust index after removal
+                    }
+                }
+                // If the wind object is out of the canvas, move it to the other side at a random y
+                for (var i = 0; i < windObjects.length; i++) {
+                    var windObject = windObjects[i];
+                    if (windObject.x < 0) {
+                        windObject.x = CANVAS_WIDTH;
+                        windObject.y = Math.random() * CANVAS_HEIGHT;
+                    } else if (windObject.x > CANVAS_WIDTH) {
+                        windObject.x = 0;
+                        windObject.y = Math.random() * CANVAS_HEIGHT;
+                    }
+                }
+            }
+
+            function renderWind() {
+                // Render the wind objects on the canvas.
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.5)'; // Semi-transparent blue for wind
+                for (var i = 0; i < windObjects.length; i++) {
+                    var windObj = windObjects[i];
+                    // Render wind as long strokes
+                    ctx.beginPath();
+                    ctx.moveTo(windObj.x, windObj.y);
+                    ctx.lineTo(windObj.x + windObj.length * windDirection, windObj.y);
+                    ctx.lineWidth = 2; // Set the line width
+                    ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)'; // Semi-transparent blue for wind
+                    ctx.stroke();
+                    ctx.closePath();
+                }
+            }
+
+            generateNewTargetLocation();
+
+            var targetRadius = 10; // Target radius
+
+            // Now we will create a slingshot mechanic where you can pull back on the paper and release it to throw it.
+            var isDragging = false;
+            var startX = 0, startY = 0;
+            var paperThrown = false;
+            var paperThrownX, paperThrownY;
+            var paperThrownVelocityX, paperThrownVelocityY;
+
+            var cursorStartX, cursorStartY;
+            var cursorEndX = 0, cursorEndY = 0;
+
+            function reset() {
+                paperX = PAPER_START_X;
+                paperY = PAPER_START_Y;
+                paperThrown = false;
+                paperThrownX = null;
+                paperThrownY = null;
+                paperThrownVelocityX = 0;
+                paperThrownVelocityY = 0;
+
+                isDragging = false;
+                startX = 0;
+                startY = 0;
+                cursorEndX = 0;
+                cursorEndY = 0;
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+
+                // Target
+                generateNewTargetLocation();
+
+                generateRandomWindDetails(); // Regenerate wind details
+                windObjects = []; // Clear wind objects
+
+                // Remove click listener if it exists
+                canvas.removeEventListener('click', reset);
+
+                isOnFailureScreen = false; // Reset the failure screen flag
+            }
+
+            // Function to show the failure screen
+            function showFailureScreen() {
+                isOnFailureScreen = true;
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                ctx.fillStyle = 'red';
+                ctx.fillText('You missed the target!', 50, 50);
+                ctx.fillText('Try again.', 50, 80);
+                // On click handler to reset the game
+                canvas.addEventListener('click', reset);
+            }
+
+            function drawPaper() {
+                // Make a complex drawing of a paper airplane.
+                ctx.fillStyle = 'gray';
+                ctx.fillRect(paperX, paperY, paperWidth, paperHeight); // Draw the paper rectangle
+                ctx.fillStyle = 'black';
+                // Add text to the paper top right of it that says "Toss this".
+                ctx.fillText('Toss this', 0, CANVAS_HEIGHT - 30); // Add text to the paper
+                // Add instructions to the top saying to toss it
+                ctx.fillText('Toss the paper to hit the target!', 10, 20); // Add instructions to the top
+                ctx.fillStyle = 'black';
+                ctx.fillRect(paperX + paperWidth / 2 - 2, paperY + paperHeight / 2 - 2, 4, 4); // Draw a small dot in the center of the paper
+            }
+
+            function drawTarget() {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, targetRadius, 0, Math.PI * 2);
+                ctx.fillText('Target', targetX - 20, targetY - 10); // Add text to the target
+                ctx.fill();
+            }
+
+            canvas.addEventListener('mousedown', function (e) {
+                if (!paperThrown) {
+                    isDragging = true;
+                    startX = e.offsetX;
+                    startY = e.offsetY;
+                    cursorEndX = e.offsetX;
+                    cursorEndY = e.offsetY;
+                }
+            });
+
+            canvas.addEventListener('mousemove', function (e) {
+                if (isDragging && !paperThrown) {
+                    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                    drawPaper();
+
+                    // Update the cursor position
+                    cursorEndX = e.offsetX;
+                    cursorEndY = e.offsetY;
+                }
+            });
+
+            canvas.addEventListener('mouseup', function (e) {
+                if (isDragging && !paperThrown) {
+                    isDragging = false;
+                    paperThrown = true;
+                    paperThrownX = paperX + paperWidth / 2;
+                    paperThrownY = paperY + paperHeight / 2;
+                    paperThrownVelocityX = (startX - e.offsetX) * 0.1; // Adjust the multiplier for speed
+                    paperThrownVelocityY = (startY - e.offsetY) * 0.1; // Adjust the multiplier for speed
+                }
+            });
+
+            // Add touch support now
+            canvas.addEventListener('touchstart', function (e) {
+                if (!paperThrown) {
+                    isDragging = true;
+                    var touch = e.touches[0];
+                    startX = touch.clientX - canvas.getBoundingClientRect().left;
+                    startY = touch.clientY - canvas.getBoundingClientRect().top;
+                    cursorEndX = startX;
+                    cursorEndY = startY;
+                }
+            });
+
+            canvas.addEventListener('touchmove', function (e) {
+                if (isDragging && !paperThrown) {
+                    e.preventDefault(); // Prevent scrolling
+                    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                    drawPaper();
+
+                    // Update the cursor position
+                    var touch = e.touches[0];
+                    cursorEndX = touch.clientX - canvas.getBoundingClientRect().left;
+                    cursorEndY = touch.clientY - canvas.getBoundingClientRect().top;
+                }
+            });
+
+            canvas.addEventListener('touchend', function (e) {
+                if (isDragging && !paperThrown) {
+                    isDragging = false;
+                    paperThrown = true;
+                    var touch = e.changedTouches[0];
+                    paperThrownX = paperX + paperWidth / 2;
+                    paperThrownY = paperY + paperHeight / 2;
+                    paperThrownVelocityX = (startX - (touch.clientX - canvas.getBoundingClientRect().left)) * 0.1; // Adjust the multiplier for speed
+                    paperThrownVelocityY = (startY - (touch.clientY - canvas.getBoundingClientRect().top)) * 0.1; // Adjust the multiplier for speed
+                }
+            });
+
+            
+
+            // Animation loop that will calculate the paper's position and draw it.
+            var lastFrameTime = Date.now();
+            var frameDuration = 1000 / 120; // 30 frames per second
+            function animate() {
+                if (isOnFailureScreen) {
+                    requestAnimationFrame(animate);
+                    return; // Stop the animation if we're on the failure screen
+                }
+                // Fix this to 30 frames per second.
+                var currentTime = Date.now();
+                if (paperThrown && (currentTime - lastFrameTime < frameDuration)) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+                lastFrameTime = currentTime;
+                ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+
+                if (paperThrown) {
+                    // Update the paper's position based on its velocity
+                    paperX += paperThrownVelocityX;
+                    paperY += paperThrownVelocityY;
+
+                    // Apply gravity
+                    paperThrownVelocityY += gravity;
+
+                    // Apply wind effect using windSpeed and windDirection to the paper
+                    paperThrownVelocityX += windDirection * windSpeed;
+                    paperThrownVelocityY += windDirection * windSpeed * 0.1; // Slightly affect vertical velocity
+
+
+                    // Check if the paper hit the target
+                    var distanceToTarget = Math.sqrt(
+                        Math.pow(paperX + paperWidth / 2 - targetX, 2) +
+                        Math.pow(paperY + paperHeight / 2 - targetY, 2)
+                    );
+                    if (distanceToTarget < targetRadius + paperWidth / 2) {
+                        // If the paper is close enough to the target, consider it a success
+                        captchaSuccess();
+                    }
+
+                    // Check for collision with the ground or its out of bounds
+                    if (paperY + paperHeight > CANVAS_HEIGHT || paperX < -100 || paperX + paperWidth > 1000) {
+                        paperY = CANVAS_HEIGHT - paperHeight; // Reset to ground level
+                        paperThrown = false; // Stop the animation
+                        // Failure
+                        showFailureScreen();
+                        // reset(); // Reset the paper position
+                    }
+                }
+
+                drawPaper();
+                drawTarget();
+                calculateWind(); // Update wind objects
+                renderWind();
+
+                // Draw a line from the start position to the current cursor position if dragging
+                if (isDragging) {
+                    ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(cursorEndX, cursorEndY);
+                    // Draw like a reverse arrow
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX + 10, startY - 10);
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(startX - 10, startY - 10);
+                    ctx.closePath();
+
+                    ctx.stroke();
+                    console.log("Dragging from (" + startX + ", " + startY + ") to (" + cursorEndX + ", " + cursorEndY + ")");
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            // Start the animation loop
+            animate();
+
+        })(window, document);
+    </script>
 </body>
+
 </html>
