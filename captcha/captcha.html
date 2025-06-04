@@ -210,7 +210,7 @@
                 // Make a complex drawing of a paper airplane.
                 ctx.fillStyle = 'gray';
                 // Draw the paper circle
-                ctx.moveTo(paperX + paperWidth / 2, paperY + paperHeight / 2);
+                ctx.moveTo(paperX + paperWidth, paperY);
                 ctx.arc(paperX + paperWidth / 2, paperY + paperHeight / 2, paperWidth / 2, 0, Math.PI * 2);
                 ctx.moveTo(paperX + paperWidth, paperY + paperHeight);
                 ctx.fill();
@@ -235,10 +235,11 @@
             function drawTarget() {
                 ctx.fillStyle = 'red';
                 ctx.beginPath();
-                ctx.moveTo(targetX, targetY);
+                ctx.moveTo(targetX + targetRadius, targetY);
                 ctx.arc(targetX, targetY, targetRadius, 0, Math.PI * 2);
                 ctx.fillText('Target', targetX - 15, targetY - 12); // Add text to the target
                 ctx.fill();
+                ctx.stroke();
             }
 
             canvas.addEventListener('mousedown', function (e) {
