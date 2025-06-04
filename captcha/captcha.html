@@ -29,7 +29,6 @@
             /* Disable scroll on tap when using canvas */
             touch-action: none;
         }
-
         /* Your style here... */
     </style>
 </head>
@@ -114,20 +113,15 @@
                 for (var i = 0; i < windObjects.length; i++) {
                     var windObject = windObjects[i];
                     windObject.x += windObject.speed * windDirection;
-                    // If the wind object goes out of bounds, remove it
-                    if (windObject.x < 0 || windObject.x > CANVAS_WIDTH) {
-                        windObjects.splice(i, 1);
-                        i--; // Adjust index after removal
-                    }
                 }
                 // If the wind object is out of the canvas, move it to the other side at a random y
                 for (var i = 0; i < windObjects.length; i++) {
                     var windObject = windObjects[i];
-                    if (windObject.x < 0) {
+                    if (windObject.x < 0 && windDirection === -1) {
                         windObject.x = CANVAS_WIDTH;
                         windObject.y = Math.random() * CANVAS_HEIGHT;
-                    } else if (windObject.x > CANVAS_WIDTH) {
-                        windObject.x = 0;
+                    } else if (windObject.x > CANVAS_WIDTH && windDirection === 1) {
+                        windObject.x = 0 - windObject.length;
                         windObject.y = Math.random() * CANVAS_HEIGHT;
                     }
                 }
@@ -147,6 +141,12 @@
                     ctx.stroke();
                     ctx.closePath();
                 }
+            }
+
+            function renderBackground() {
+                // Draw a light blue background
+                ctx.fillStyle = 'lightblue';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             }
 
             generateNewTargetLocation();
@@ -172,6 +172,8 @@
                 paperThrownVelocityX = 0;
                 paperThrownVelocityY = 0;
 
+                renderBackground();
+
                 isDragging = false;
                 startX = 0;
                 startY = 0;
@@ -196,8 +198,10 @@
                 isOnFailureScreen = true;
                 ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
                 ctx.fillStyle = 'red';
-                ctx.fillText('You missed the target!', 50, 50);
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('You missed the target!', 50, 60);
                 ctx.fillText('Try again.', 50, 80);
+                ctx.font = '12px Arial';
                 // On click handler to reset the game
                 canvas.addEventListener('click', reset);
             }
@@ -205,21 +209,35 @@
             function drawPaper() {
                 // Make a complex drawing of a paper airplane.
                 ctx.fillStyle = 'gray';
-                ctx.fillRect(paperX, paperY, paperWidth, paperHeight); // Draw the paper rectangle
+                // Draw the paper circle
+                ctx.moveTo(paperX + paperWidth / 2, paperY + paperHeight / 2);
+                ctx.arc(paperX + paperWidth / 2, paperY + paperHeight / 2, paperWidth / 2, 0, Math.PI * 2);
+                ctx.moveTo(paperX + paperWidth, paperY + paperHeight);
+                ctx.fill();
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.closePath();
+                ctx.stroke();
+
+                // remove stroke
+
                 ctx.fillStyle = 'black';
                 // Add text to the paper top right of it that says "Toss this".
                 ctx.fillText('Toss this', 0, CANVAS_HEIGHT - 30); // Add text to the paper
                 // Add instructions to the top saying to toss it
                 ctx.fillText('Toss the paper to hit the target!', 10, 20); // Add instructions to the top
+                // Say click and drag anywhere to throw
+                ctx.fillText('Click and drag anywhere to throw', 10, 40); // Add instructions to the top
                 ctx.fillStyle = 'black';
-                ctx.fillRect(paperX + paperWidth / 2 - 2, paperY + paperHeight / 2 - 2, 4, 4); // Draw a small dot in the center of the paper
+                // ctx.fillRect(paperX + paperWidth / 2 - 2, paperY + paperHeight / 2 - 2, 4, 4); // Draw a small dot in the center of the paper
             }
 
             function drawTarget() {
                 ctx.fillStyle = 'red';
                 ctx.beginPath();
+                ctx.moveTo(targetX, targetY);
                 ctx.arc(targetX, targetY, targetRadius, 0, Math.PI * 2);
-                ctx.fillText('Target', targetX - 20, targetY - 10); // Add text to the target
+                ctx.fillText('Target', targetX - 15, targetY - 12); // Add text to the target
                 ctx.fill();
             }
 
@@ -235,7 +253,8 @@
 
             canvas.addEventListener('mousemove', function (e) {
                 if (isDragging && !paperThrown) {
-                    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                    // renderBackground(); // Draw the background
+                    // ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
                     drawPaper();
 
                     // Update the cursor position
@@ -270,7 +289,7 @@
             canvas.addEventListener('touchmove', function (e) {
                 if (isDragging && !paperThrown) {
                     e.preventDefault(); // Prevent scrolling
-                    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                    // ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
                     drawPaper();
 
                     // Update the cursor position
@@ -292,8 +311,6 @@
                 }
             });
 
-            
-
             // Animation loop that will calculate the paper's position and draw it.
             var lastFrameTime = Date.now();
             var frameDuration = 1000 / 120; // 30 frames per second
@@ -310,6 +327,7 @@
                 }
                 lastFrameTime = currentTime;
                 ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); // Clear the canvas
+                renderBackground(); // Draw the background
 
                 if (paperThrown) {
                     // Update the paper's position based on its velocity
@@ -356,13 +374,11 @@
                     ctx.beginPath();
                     ctx.moveTo(startX, startY);
                     ctx.lineTo(cursorEndX, cursorEndY);
-                    // Draw like a reverse arrow
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(startX + 10, startY - 10);
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(startX - 10, startY - 10);
+                    // Draw a black circle at start position
+                    ctx.arc(startX + 5, startY, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'black';
+                    ctx.fill();
                     ctx.closePath();
-
                     ctx.stroke();
                     console.log("Dragging from (" + startX + ", " + startY + ") to (" + cursorEndX + ", " + cursorEndY + ")");
                 }
